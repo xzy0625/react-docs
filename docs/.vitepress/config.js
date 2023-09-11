@@ -1,18 +1,21 @@
 export default {
-  title: "react-docs", // 博客的标题
+  title: "react18源码解析", // 博客的标题
   description: "react相关学习文档", // 博客的介绍
   base: "/react-docs/", // 根路径,如果想用github.io访问这个必填，需和github仓库名字一致 【https://vitejs.cn/vitepress/guide/deploy.html#github-pages-%E5%92%8C-travis-ci】
   lastUpdated: true, // 开启最后更新时间
   themeConfig: {
     logo: "/images/logo.png", // 页面上显示的logo
     algolia: {
-      apiKey: 'your_api_key', // 这里是algolia的key和indexName，请自行前往申请
-      indexName: 'index_name'
+      appId: '94RGZI7OSQ',
+      apiKey: '5d80235956f58d7af794ee20612b15ba', // 这里是algolia的key和indexName，请自行前往申请
+      indexName: 'react-docs',
+      placeholder: '请输入关键词',
+      buttonText: '搜索',
     },
     nav: [
       // 页面右上角的导航
-      { text: "blog1", link: "/blogs/blog1/" },
-      { text: "blog2", link: "/blogs/blog2/" },
+      { text: "🔥前端算法(编写中)", link: "/blogs/blog1/" },
+      { text: "💭学习圈子(编写中)", link: "/blogs/blog1/" },
       {
         text: "其他",
         items: [
@@ -40,25 +43,6 @@ export default {
             {
               text: "second",
               link: "/blogs/blog1/second",
-            },
-          ],
-        },
-      ],
-      "/blogs/blog2/": [
-        {
-          text: "blog2",
-          items: [
-            {
-              text: "index",
-              link: "/blogs/blog2/",
-            },
-            {
-              text: "first",
-              link: "/blogs/blog2/first",
-            },
-            {
-              text: "second",
-              link: "/blogs/blog2/second",
             },
           ],
         },
