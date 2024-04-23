@@ -51,3 +51,4 @@ yarn dev
 [vitepress](https://vitepress.dev/reference/default-theme-last-updated)
 https://process1024.github.io/vitepress/guide/theme-search
 https://juejin.cn/post/7164276166084263972
+algolia配置：https://blog.csdn.net/weixin_44495599/article/details/132022146

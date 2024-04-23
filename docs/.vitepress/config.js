@@ -30,20 +30,20 @@ export default {
       // 当用户在 `blogs` 目录页面下将会展示这个侧边栏
       "/blogs/blog1/": [
         {
-          text: "blog1",
+          text: "如何调试源码",
           items: [
             {
-              text: "index",
+              text: "优雅的调试源码",
               link: "/blogs/blog1/",
             },
-            {
-              text: "fisrt",
-              link: "/blogs/blog1/first",
-            },
-            {
-              text: "second",
-              link: "/blogs/blog1/second",
-            },
+            // {
+            //   text: "fisrt",
+            //   link: "/blogs/blog1/first",
+            // },
+            // {
+            //   text: "second",
+            //   link: "/blogs/blog1/second",
+            // },
           ],
         },
       ],
