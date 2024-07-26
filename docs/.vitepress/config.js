@@ -6,8 +6,8 @@ export default {
   themeConfig: {
     logo: "/images/logo.png", // 页面上显示的logo
     algolia: {
-      appId: '94RGZI7OSQ',
-      apiKey: '5d80235956f58d7af794ee20612b15ba', // 这里是algolia的key和indexName，请自行前往申请
+      appId: 'W89ZSBPTZN',
+      apiKey: '38d78106e5e486959bba0748b3378d84', // 这里是algolia的key和indexName，请自行前往申请
       indexName: 'react-docs',
       placeholder: '请输入关键词',
       buttonText: '搜索',
@@ -36,10 +36,10 @@ export default {
               text: "优雅的调试源码",
               link: "/blogs/blog1/",
             },
-            // {
-            //   text: "fisrt",
-            //   link: "/blogs/blog1/first",
-            // },
+            {
+              text: "彻底理解react的时间分片和并发机制",
+              link: "/blogs/blog1/scheduler_and_concurrent",
+            },
             // {
             //   text: "second",
             //   link: "/blogs/blog1/second",
