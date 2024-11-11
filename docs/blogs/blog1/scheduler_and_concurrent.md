@@ -46,7 +46,7 @@
 
 在大型应用程序中，组件树通常会变得非常庞大，导致更新操作变得非常耗时。在这种情况下，如果没有合适的优化措施，放任`js`一直占用主线程，就会导致用户界面出现卡顿，影响用户体验。例如我们用过没有开启同步模式的`react`，我们会发现在更新的过程中`js`会一直占用主线程，当组件多，计算量大的时候界面的卡顿会变得非常严重。
 
-<img src="assets/image-20240514170835483.png" alt="image-20240514170835483" style="zoom:50%;" />
+<img src="./assets/image-20240514170835483.png" alt="image-20240514170835483" style="zoom:50%;" />
 
 上图可以看到当`react`进行渲染的时候，整个阶段都是不可中断，一直执行的，整整占用了主线程207ms，也就是说这207ms我们操作界面将不会有任何反应。如果电脑性能再差点，页面组件再复杂点，这个占用的时间只会更多。
 
@@ -68,7 +68,7 @@
 
 可以看到整个架构最大的变化就是引入了调度器，可以实现对不同优先级的任务进行调度。这样就保证了对时效性高的任务可以快速响应。另外，在渲染阶段`react`还引入了时间分片的概念(`react`定义的时间为5ms)，把一个大的任务拆解成一个个小的任务，这样就可以保证每一帧都留出时间供浏览器渲染，降低卡顿。这两个概念也是我们本篇文章重点。如下图，单个任务占用主线程的时间基本在5ms左右，不会长时间占用主线程了。
 
-<img src="assets/image-20240520212056212.png" alt="image-20240520212056212" style="zoom:50%;" />
+<img src="./assets/image-20240520212056212.png" alt="image-20240520212056212" style="zoom:50%;" />
 
 ### react-sheduler
 
@@ -548,7 +548,7 @@ function App() {
 
 构建成`fiber`树后将会是下面这样子。
 
-<img src="assets/image-20240519163445499.png" alt="image-20240519163445499" style="zoom:50%;" />
+<img src="./assets/image-20240519163445499.png" alt="image-20240519163445499" style="zoom:50%;" />
 
 至于为什么`fiber1`和`fiber2`不会出现在`fiber`树中，是因为`react`为了优化，字符串会直接渲染不产生`fiber`节点。
 
@@ -558,7 +558,7 @@ function App() {
 
 在了解到如何实现可中断渲染之前，我们先大概的看下`react`的整个渲染流程。这里借用网上很流行的一张图(没有找到出处)，但是这张图对于整个`react`脉络总结的非常到位。
 
-<img src="assets/image-20240519164431073.png" alt="image-20240519164431073" style="zoom:50%;" />
+<img src="./assets/image-20240519164431073.png" alt="image-20240519164431073" style="zoom:50%;" />
 
 整个`react`的渲染大体可以分为两个阶段`render`阶段和`commit`阶段
 
@@ -1120,17 +1120,17 @@ let exitStatus = shouldTimeSlice
 
 #### 未启用`Scheduler`
 
-<img src="assets/image-20240520211609671.png" alt="image-20240520211609671" style="zoom:50%;" />
+<img src="./assets/image-20240520211609671.png" alt="image-20240520211609671" style="zoom:50%;" />
 
 #### 启用`Scheduler`
 
-<img src="assets/image-20240520211455033.png" alt="image-20240520211455033" style="zoom:50%;" />
+<img src="./assets/image-20240520211455033.png" alt="image-20240520211455033" style="zoom:50%;" />
 
 可以看到启用`Scheduler`之后，浏览器每一帧基本`js`线程都只会占用5ms，不会影响浏览器的渲染。但是未启用的情况下足足阻塞了浏览器主线程3s，这三秒期间浏览器不会有任何响应。
 
 ### 总结
 
-<img src="assets/image-20240521172717529.png" alt="image-20240521172717529" style="zoom:50%;" />
+<img src="./assets/image-20240521172717529.png" alt="image-20240521172717529" style="zoom:50%;" />
 
 到此我们的文章就已接近尾声，其实整个`react`运行的过程就是三个循环相互配合的过程。三个循环分别位于浏览器，`Scheduler`和`Reconciler`。然后我们再整体串一下整个流程：
 

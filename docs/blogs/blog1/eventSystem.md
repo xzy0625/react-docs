@@ -46,101 +46,145 @@ function preventDefault(event) {
 
 基于以上等一些跨平台的浏览器兼容问题，React 内部实现了一套自己的合成事件。
 
-# React 事件行为
+
+
+## 事件代理
+
+事件代理又称之为事件委托， 事件代理是把原本需要绑定在`子元素`的事件委托给`父元素`，让父元素负责事件监听和处理。在`react18`中事件绑定在`root`节点上，也就是我们应用挂载的节点。
+
+**事件代理主要有以下好处：**
+
+1. 可以大量节省内存占用，减少事件注册事件。
+
+2. 当新增子对象时无需再次对其绑定
+
+**能够事件事件代理的前提：**
+
+1. 事件冒泡到父元素，父元素可以订阅到冒泡事件。
+
+2. 可以通过 `event.target` 得到目标节点。不然, 父元素怎么针对不同的子节点，进行定制化事件代理。
+
+`react`实现事件代理也是基于此，对于不支持的冒泡的事件是会单独处理的
+
+
+
+## React17和React18的不同
+
+`react17`中事件是统一绑定在`document`节点上，而18是绑定在挂载的根结点上。主要是以下考虑：
+
+1. **更好的事件隔离**：将事件处理器绑定到 root 节点上，可以更好地隔离不同的 React 应用。如果页面上运行着多个 React 应用，这种方式可以防止一个应用的事件处理干扰到另一个应用。
+2. **避免冒泡到 document**：在 React 17 及之前版本中，所有的事件处理器都绑定在 document 上，这意味着非react节点产生的事件都会冒泡到 document 层级。这种行为在某些情况下可能不是必需的，甚至可能引起性能问题。通过将事件处理器绑定到 root 节点，可以避免不必要的事件冒泡，从而提高性能。
+3. **更好的兼容性和封装性**：将事件绑定在更接近组件的位置（即 root 节点），有助于保持组件的封装性，使得组件和应用更加独立。这也有助于在使用 Shadow DOM 等 Web 组件时，提供更好的兼容性。
+4. **简化事件处理逻辑**：通过将事件处理逻辑保持在更局部的范围内（即 root 节点），React 可以更简单地管理事件，减少对全局事件监听的依赖，这在复杂应用中可以简化事件管理。
+
+# React18 事件行为
 
 ```js
-js
-
- 代码解读
-复制代码import { useRef, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
+import { useRef, useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
 
 function App() {
-  const parentRef = useRef()
-  const childRef = useRef()
+  const parentRef = useRef();
+  const childRef = useRef();
 
   const parentBubble = () => {
-    console.log('父元素React事件冒泡')
-  }
+    console.log('父元素React事件冒泡');
+  };
   const childBubble = () => {
-    console.log('子元素React事件冒泡')
-  }
+    console.log('子元素React事件冒泡');
+  };
   const parentCapture = () => {
-    console.log('父元素React事件捕获')
-  }
+    console.log('父元素React事件捕获');
+  };
   const childCapture = () => {
-    console.log('子元素React事件捕获')
-  }
+    console.log('子元素React事件捕获');
+  };
 
   useEffect(() => {
     parentRef.current.addEventListener(
       'click',
       () => {
-        console.log('父元素原生捕获')
+        console.log('父元素原生捕获');
       },
-      true
-    )
+      true,
+    );
 
     parentRef.current.addEventListener('click', () => {
-      console.log('父元素原生冒泡')
-    })
+      console.log('父元素原生冒泡');
+    });
 
     childRef.current.addEventListener(
       'click',
       () => {
-        console.log('子元素原生捕获')
+        console.log('子元素原生捕获');
       },
-      true
-    )
+      true,
+    );
 
     childRef.current.addEventListener('click', () => {
-      console.log('子元素原生冒泡')
-    })
+      console.log('子元素原生冒泡');
+    });
 
     document.addEventListener(
       'click',
       () => {
-        console.log('document原生捕获')
+        console.log('document原生捕获');
       },
-      true
-    )
+      true,
+    );
 
     document.addEventListener('click', () => {
-      console.log('document原生冒泡')
-    })
-  }, [])
+      console.log('document原生冒泡');
+    });
+  }, []);
 
   return (
     <div ref={parentRef} onClick={parentBubble} onClickCapture={parentCapture}>
-      <p ref={childRef} onClick={childBubble} onClickCapture={childCapture}>
-        事件执行顺序
-      </p>
+      <div ref={childRef} onClick={childBubble} onClickCapture={childCapture}>
+        点击这里
+      </div>
     </div>
-  )
+  );
 }
 
-const root = createRoot(document.getElementById('root'))
-root.render(<App />)
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
 ```
 
-大家不看答案的情况下，如果可以说出以上代码打印的日志，那说明对 React 事件掌握的不错。
+当我们点击之后，打印的结果如下图：
 
-好，接下来揭晓一下答案
+```js
+/**
+document原生捕获
+父元素React事件捕获
+子元素React事件捕获
+父元素原生捕获
+子元素原生捕获
+子元素原生冒泡
+父元素原生冒泡
+子元素React事件冒泡
+父元素React事件冒泡
+document原生冒泡
+ */
+```
 
-![image.png](./assets/a28f4e674e484335b7d8287613fff68d~tplv-k3u1fbpfcp-zoom-in-crop-mark:1512:0:0:0.awebp)
+整个执行顺序如下图所示：
+
+![image-20241111171107192](./assets/image-20241111171107192.png)
+
+如果不理解没关系我们下面会结合源码详细讲解。
 
 ## 解析触发过程
 
-上面代码层级如下 `document` -> `root` -> `div` -> `p`
- React17-18 中是采用了事件代理的形式，将事件挂载到了 #root 上，所以。
+上面代码层级如下 `document` -> `root` -> `div` -> `p`。根据事件触发原理，捕获阶段的事件会最先处理
 
-1. `document` 注册的事件最先触发。
-2. `root` 注册的事件触发，React 根据当前点击的 `event.target` 收集对应 DOM 节点的 `fiber` 节点中的 `pendingProps`，`pendingProps` 在这里简单理解就是 `jsx` 中 DOM 节点对应的 `props`，收集 `props` 中的 `onClickCapture`（因为触发的是点击事件，所以收集 `onClickCapture` 捕获函数），最终在队列中收集成 `[childCapture, parentCapture]`，然后倒序触发。
-3. `div` 注册的捕获事件触发。
-4. `p` 注册的捕获事件触发。
-5. `p` 注册的冒泡事件触发。
-6. `div` 注册的冒泡事件触发。
-7. `root` 收集的队列里有两个冒泡事件， `[childBubble, parentBubble]`， 然后正序触发。
+1. 所以`document` 注册的捕获事件最先触发。
+2. `root` 注册的捕获事件触发，React 根据当前点击的 `event.target` 上的`internalContainerInstanceKey`属性找到对应的`fiber`节点。然后从当前`fiber`节点网上收集`internalPropsKey`属性中含有当前捕获事件的函数放入数组中。收集完成之后对数组倒序触发，模拟捕获的行为。所以这时候`react`中绑定的捕获会先触发
+3. `div` 注册的原生捕获事件触发。
+4. `p` 注册的原生捕获事件触发。
+5. `p` 注册的原生冒泡事件触发。
+6. `div` 注册的原生冒泡事件触发。
+7. `root` 注册的冒泡事件触发，同理会通过`fiber`节点向上收集。然后正序触发。
 8. `document` 注册的冒泡事件触发。
 
 # 源码部分
