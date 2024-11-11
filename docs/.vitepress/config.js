@@ -1,3 +1,5 @@
+import { sidebar } from './sidebar';
+
 export default {
   title: "react18源码解析", // 博客的标题
   description: "react相关学习文档", // 博客的介绍
@@ -25,29 +27,7 @@ export default {
         ],
       },
     ],
-    sidebar: {
-      // 侧边栏，可以分组
-      // 当用户在 `blogs` 目录页面下将会展示这个侧边栏
-      "/blogs/blog1/": [
-        {
-          text: "如何调试源码",
-          items: [
-            {
-              text: "优雅的调试源码",
-              link: "/blogs/blog1/",
-            },
-            {
-              text: "彻底理解react的时间分片和并发机制",
-              link: "/blogs/blog1/scheduler_and_concurrent",
-            },
-            // {
-            //   text: "second",
-            //   link: "/blogs/blog1/second",
-            // },
-          ],
-        },
-      ],
-    },
+    sidebar,
     docFooter: { prev: '上一篇', next: '下一篇' },
     footer: {
       message: 'Released under the MIT License.',
