@@ -1,6 +1,6 @@
 # react18事件系统
 
-# 前置知识
+## 前置知识
 
 事件流包含三个阶段, 按照以下顺序依次执行
 
@@ -12,16 +12,13 @@
 
 原生事件会产生一些跨平台的兼容问题
 
-1. 阻止冒泡
+#### 1. 阻止冒泡
 
 - 在微软的模型中你必须设置事件的 `cancelBubble` 的属性为 true
 - 在 W3C 模型中你必须调用事件的 `stopPropagation()` 方法
 
 ```js
-js
-
- 代码解读
-复制代码function stopPropagation(event) {
+function stopPropagation(event) {
   if (!event) {
     window.event.cancelBubble = true;
   }
@@ -31,16 +28,13 @@ js
 }
 ```
 
-1. 阻止默认事件
+#### 2. 阻止默认事件
 
 - 在微软的模型中你必须设置事件的 `returnValue` 的属性为 false
 - 在 W3C 模型中你必须调用事件的 `preventDefault()` 方法
 
 ```js
-js
-
- 代码解读
-复制代码function preventDefault(event) {
+function preventDefault(event) {
   if (!event) {
     window.event.returnValue = false
   }
