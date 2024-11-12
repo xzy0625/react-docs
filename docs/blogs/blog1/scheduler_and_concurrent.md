@@ -2,7 +2,7 @@
 
 > `react` 是前端开发每天都在使用的前端框架，为了更好的驾驭它，自然要深入了解它的原理。我用 React 也挺久了，也阅读过部分源码，借着这个周末，系统的整理下`react`中比较核心的部分。本篇文章主要来聊聊`react`中的时间分片和任务调度，以及它们在整个`react`渲染过程中是如何紧密结合的。本文所有关于源码都是基于` react v18.2` 版本。
 
-### 前置知识
+## 前置知识
 
 在讲述硬核内容之前，我们先来点简单的复习。
 
@@ -28,19 +28,19 @@
 
 但是要让开发去写这样的` vdom `么？那肯定不行，这样太麻烦了，大家熟悉的是 html 那种方式，所以我们要引入编译的手段。
 
-#### JSX
+### JSX
 
 直接写` vdom `太麻烦了，所以各种前端框架都会设计一套自己的`DSL`，然后编译产生 vdom。在`react`中，这个`DSL`也就是大家熟悉的`JSX`，编译函数也就是大家熟知的`createElement`（17后已废弃改用`jsx.runtimer`）
 
 所以这里我们也顺势弄清楚了`JSX`和`vdom`的关系。`JSX`会通过编译函数生成`vdom`，最后被提交到页面上。
 
-#### 浏览器渲染
+### 浏览器渲染
 
 在浏览器的每一帧渲染过程中（按 60fps来计算，大概有16.6ms），要执行包括 “执行 JS -> requestAnimationFrame -> paint -> requestIdelCallback”。在执行 JS 的过程中，浏览器会执行一次事件循环 eventloop 。每一次事件循环会执行一次宏任务和多次微任务。
 
 所以如果我们的`js`执行时间过长，超过了每一帧的时间（16.6ms），就会阻碍渲染引起卡顿。这也是为什么我们需要关注项目中长任务的原因。
 
-#### react15的性能瓶颈
+### react15的性能瓶颈
 
 要了解为什么` React `要引入时间分片和任务调度技术。我们就需要知道之前的`react`版本所存在的问题。
 
@@ -70,20 +70,20 @@
 
 <img src="./assets/image-20240520212056212.png" alt="image-20240520212056212" style="zoom:50%;" />
 
-### react-sheduler
+## react-sheduler
 
 上面提到，`react16`之后的版本引入了调度器`sheduler`，接下来我们就从它入手揭开`react`的神秘面纱。
 
-#### react-sheduler介绍
+### react-sheduler介绍
 
 **Scheduler设计之初的定位就是一个独立的包，不仅仅在React中可以使用。**从名字可以看出，Scheduler 的主要功能就是进行任务的调度。
 
 - `Scheduler`可以实现对不同优先级的任务进行调度，优先执行高优先级的任务。
 - `Scheduler`利用时间分片可以实现任务的中断和恢复，如果一个任务执行时间过长，超过了我们Scheduler设置的执行时间，就会中断当前任务，将线程让出进行渲染，避免造成卡顿。中断的任务会在下一次恢复执行。
 
-#### Scheduler中核心的概念
+### Scheduler中核心的概念
 
-##### Scheduler中的任务是什么
+### Scheduler中的任务是什么
 
 ```js
 var newTask = {
@@ -98,7 +98,7 @@ var newTask = {
 
 可以看到一个任务其实就是一个对象，我们主要关注`sortIndex`和`callback`这两个属性。`sortIndex`决定我们的任务在小顶堆中的位置，它由`startTime / expirationTime`赋值而来，`sortIndex`越小表示我们任务越早被执行。`callback`决定我们最终任务执行的时候执行哪个函数
 
-##### Scheduler如何实现任务的管理
+### Scheduler如何实现任务的管理
 
 `Scheduler`使用小顶堆实现了两个队列(`packages/scheduler/src/SchedulerMinHeap.js`)，底层都是按照任务的`sortIndex`来排序，只是在不同的队列中会被赋值为不同的变量。
 
@@ -126,7 +126,7 @@ function advanceTimers(currentTime) {
 }
 ```
 
-##### Scheduler中的优先级
+### Scheduler中的优先级
 
 我们知道了`Scheduler`可以实现优先级调度，为了实现这个目标，`Scheduler`实现了一套优先级机制，并且会根据这些优先级设置超时时间，最后作为任务的过期时间，过期时间越早说明任务优先级越高，在排序中就会越靠前，运行时就会优先执行。
 
@@ -152,11 +152,11 @@ var LOW_PRIORITY_TIMEOUT = 10000; // LowPriority
 var IDLE_PRIORITY_TIMEOUT = maxSigned31BitInt; // IdlePriority
 ```
 
-#### 如何实现任务调度
+## 如何实现任务调度
 
 有了上面的基础认识，我们接下来看看Scheduler是如何进行任务管理的。主要分为三个部分：创建任务，调度任务，执行任务。
 
-##### 创建任务
+### 创建任务
 
 `Scheduler`模块暴露出`unstable_scheduleCallback`供外部调用者进行任务的创建并且会发起一次任务调度。
 
@@ -253,7 +253,7 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
    - 任务没到开始时间会调用`requestHostTimeout`
    - 任务到了开始时间会调用`requestHostCallback`
 
-##### 调度任务
+### 调度任务
 
 我们知道创建任务之后会发起一次调度，对应的函数
 
@@ -317,19 +317,19 @@ if (typeof localSetImmediate === 'function') {
 
 这里就是`Scheduler`如何配合浏览器的事件循环发起调度的精髓所在。我们知道浏览器每一帧会执行一次宏任务和多次微任务，那么我们就很当然的想到是不是每次都发起一次宏任务，这样可以保证每一帧都能进行一次任务调度。`Scheduler`也是这么做的，只不过为了兼容不同的环境使用了不同的浏览器`api`进行兼容。最后的目的都是为了在浏览器的每一次事件循环都能发起一次`Scheduler`调度。
 
-###### 为什么选宏任务不选微任务
+#### 为什么选宏任务不选微任务
 
 宏任务执行时间可控，一次事件循环宏任务只会执行一次，而微任务会执行多次导致，导致线程被一直占用。
 
-###### 为什么不用setTimeout和setInterval
+#### 为什么不用setTimeout和setInterval
 
 `setTimeout`也是宏任务，不过由于4ms延迟的限制，导致我们`setTimeout(fn,0) `所创建的宏任务，会有至少 4ms 的执行时差，`setTimeout`也是如此。不过对于不支持`MessageChannel`的浏览器会降级使用`setTimeout`。
 
-###### 为什么不用requestIdelCallback
+#### 为什么不用requestIdelCallback
 
 requestIdelCallback 方法也被 React 尝试过，只是后来因为兼容性、不同机器及浏览器执行效率的问题又被 requestAnimationFrame + setTimeout 的 polyfill 方法替代了。不过很多培训机构写的`mini react`都是使用`requestIdelCallback`来实现的哈哈。
 
-###### 为什么不用requestAnimationFrame
+#### 为什么不用requestAnimationFrame
 
 在16.10之前的版本，react还是使用的`requestAnimationFrame` + `setTimeout`的方式来处理任务，不过因为效果不理想被放弃。个人觉得主要是因为在浏览器没激活或者其他为了节省性能的地方`requestAnimationFrame`会停止执行，体验不是很好。
 
@@ -368,7 +368,7 @@ const performWorkUntilDeadline = () => {
 
 `performWorkUntilDeadline`最终会执行`scheduledHostCallback`，也就是我们`requestHostCallback(flushWork);`传进去的`flushWork`，整个任务处理的核心都在`flushWork`这个函数里。任务处理完成后会根据`flushWork`的返回值`hasMoreWork`来判断是不是要发起下一次调度。
 
-##### 执行任务
+#### 执行任务
 
 当我们发起调度之后最终会执行`flushWork`函数。
 
@@ -468,7 +468,7 @@ function workLoop(hasTimeRemaining, initialTime) {
 
 > 要注意，有了可中断的`fiber`架构之后，`Scheduler`中的一个任务是有可能被调用很多次的，因为上一次没执行完后面会接着执行。
 
-### fiber
+## fiber
 
 通过上面的分析我们得知，在`React15`及以前，`Reconciler`采用递归的方式创建虚拟DOM，递归过程是不能中断的。如果组件树的层级很深，递归会占用线程很多时间，造成卡顿。为了解决这个问题，`React16`将**递归的无法中断的更新**重构为**异步的可中断更新**，由于曾经用于递归的**虚拟DOM**数据结构已经无法满足需要。于是，`fiber`架构应运而生，配合`Scheduler`的任务调度，使得`react`性能大大提升。下面我们就来看看`fiber`到底是个什么东西。
 
@@ -552,9 +552,9 @@ function App() {
 
 至于为什么`fiber1`和`fiber2`不会出现在`fiber`树中，是因为`react`为了优化，字符串会直接渲染不产生`fiber`节点。
 
-### 单个任务如何实现可中断更新
+## 单个任务如何实现可中断更新
 
-#### react渲染流程概览
+### react渲染流程概览
 
 在了解到如何实现可中断渲染之前，我们先大概的看下`react`的整个渲染流程。这里借用网上很流行的一张图(没有找到出处)，但是这张图对于整个`react`脉络总结的非常到位。
 
@@ -591,7 +591,7 @@ function workLoopSync() {
 
 从这里我们可以看出，`workLoopConcurrent`其实就比`workLoopSync`多了一个`shouldYield`判断。在源码中可以看到`shouldYield`正是`react-sheduler`包导出的`shouldYieldToHost`。这下我们就清楚`react`是怎么实现对单个任务也能实现超过5ms就中断了，核心就是`workLoopConcurrent`这个循环里面的`shouldYield`。每构建完一个`fiber`节点，我们都会判断当前构建是否超时，超时的话就会中断当前的构建。
 
-#### 构建fiber树循环
+### 构建fiber树循环
 
 `workLoopConcurrent和workLoopSync`中的循环就是我们提到的另一个循环`fiber`构建循环，它会不断的将`vdom`构建成为`fiber`。这个循环的粒度是单个`fiber`节点。
 
@@ -620,7 +620,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
 由于篇幅有限，这里不做赘述。我们仅需要知道`performUnitOfWork`每次执行都会将新生成的`fiber`节点赋值给一个全局变量`workInProgress`，并作为下一次循环时调用`performUnitOfWork`传进来的参数。
 
-#### 何时向Scheduler中注册调度任务
+### 何时向Scheduler中注册调度任务
 
 前面我们知道了当我们调用`setState、forceUpdate、render`这些会引起页面重新渲染的函数时，`react`会依次调用`updateContainer -> scheduleUpdateOnFiber -> ensureRootIsScheduled`。我们来看看`ensureRootIsScheduled`这个函数，他也是我们渲染流程中和`Scheduler`关联最多函数：
 
@@ -672,11 +672,11 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 我们在`ensureRootIsScheduled`中会调用`scheduleCallback`。这个函数也就是我们在`Scheduler`提到的`unstable_scheduleCallback`函数。`scheduleCallback`会在`taskQueue`中注册一个任务，这个任务的回调函数就是`performConcurrentWorkOnRoot.bind(null, root)`。然后`scheduleCallback`会发起一次调度，在下一次事件循环执行任务的时候就会执行`performConcurrentWorkOnRoot`，从而使两者紧密关联。
 
-#### 如何进行fiber构建的中断
+### 如何进行fiber构建的中断
 
 我们知道`fiber`架构的核心就是为了实现在`Scheduler`调度的时候，单个任务内部也可以实现超时中止的判断。这里的核心实现就是我们`fiber`构建循环中的的`shouldYield`判断，每当我们构建了一个新`fiber`节点的时候，我们都会在循环的开始判断当前构建是否超时，如果超时的话就会中断`fiber`树的构建。这样就实现了单个任务内部也可以超时终止。
 
-#### 如何进行fiber构建的恢复
+### 如何进行fiber构建的恢复
 
 那么当我们终止了`fiber`树的构建之后，`react`怎么知道从什么地方开始继续构建呢？
 
@@ -697,19 +697,19 @@ function performConcurrentWorkOnRoot(root, didTimeout) {
 
 任务中断的重启+`workInProgress`保存上一次中断的状态就可以实现我们`fiber`构建的重启了。
 
-#### fiber vdom jsx之间的关系
+### fiber vdom jsx之间的关系
 
 在搞清楚渲染流程之后，我们顺便总结下`fiber vdom jsx`这三个常见概念的关系。`jsx`通过`createElement/jsx.runtimer`编译成`vdom`，`vdom`在`render`过程中被构建为`fiber`树。最后在`commit`阶段将`fiber`树整个的渲染到浏览器的页面中
 
-#### 总结
+### 总结
 
 现在我们已经知道了react是如何通过`fiber`架构来实现单个任务也能实现可中断更新的，
 
-### 任务调度机制
+## 任务调度机制
 
 前面我们已经知道了`react`调度和渲染的基本流程，我们也知道`sheduler`可以实现优先级调度，接下来就从整体来看看究竟是如何实现的。
 
-#### React中的各种优先级
+### React中的各种优先级
 
 在理解优先级调度之前，我们先了解下`react`中的所有优先级。
 
@@ -799,7 +799,7 @@ export function requestUpdateLane(fiber: Fiber): Lane { // 获取更新优先级
 
 Scheduler优先级就是我们上面提到的调度过程中的优先级。在`ensureRootIsScheduled`中发起调度的时候，我们会通过`lanesToEventPriority`将`Lanes`优先级转换为事件优先级，由于事件优先级的个数和`schduler`个数一致，所以刚好可以将事件优先级转换成调度优先级。
 
-##### 优先级之间的相互转换
+#### 优先级之间的相互转换
 
 - `lane `优先级转` event `优先级
 
@@ -815,7 +815,7 @@ Scheduler优先级就是我们上面提到的调度过程中的优先级。在`e
 
 在`react`的每个阶段都会使用不同的优先级。 正是通过对优先级的灵活运用, `React`实现了`可中断渲染`,`时间切片(time slicing)`,`异步渲染(suspense)`等特性。所以在学习`react`源码的时候理解优先级机制是非常重要的。
 
-#### 要考虑的问题
+### 要考虑的问题
 
 要实现优先级调度，我们需要考虑如下几个问题。
 
@@ -825,11 +825,11 @@ Scheduler优先级就是我们上面提到的调度过程中的优先级。在`e
 
 如果弄清楚了这些问题，我们对整个优先级机制就有了更全面的认知
 
-#### 如何确定不同场景下触发更新的优先级
+### 如何确定不同场景下触发更新的优先级
 
 由于用户触发的各种事件上都会预先被设置带有不同的优先级，所以在更新的时候自然可以确认不同更新场景的优先级
 
-#### 如何实现高优先级任务打断低优先级任务
+### 如何实现高优先级任务打断低优先级任务
 
 ```js
 function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
@@ -911,7 +911,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 2. 调度这一次的更高优先级任务
 3. 重启低优先级任务
 
-##### 取消上一次调度的任务
+#### 取消上一次调度的任务
 
 ```js
 if (existingCallbackNode != null) { // 前面不相等并且存在已有的任务，说明这次的任务肯定比以前的任务优先级高，取消之前的任务
@@ -957,11 +957,11 @@ function workLoop(hasTimeRemaining, initialTime) {
 
 > 由于我们`sheduler`任务绑定的回调函数为`performConcurrentWorkOnRoot.bind(null, root)`。这个函数是绑定了`fiber`树`root`的。如果先执行高优先级的任务，那么`fiber`树的状态肯定会发生变化，这时候再用老的`fiber`树肯定不合适了，所以要舍弃这个任务，后面再开启一个新的任务。
 
-##### 调度这一次的更高优先级任务
+#### 调度这一次的更高优先级任务
 
 调度高优先级任务就比较简单了，我们只需要再调用一次`scheduleCallback`就可以了。下一个事件循环的时候`sheduler`就会优先调用我们这个高优先级任务。
 
-##### 重启低优先级任务
+#### 重启低优先级任务
 
 前面提到我们会取消这个低优先级的任务，所以在完成高优先级的任务之后我们需要发起一次新的调度来重新创建这个低优先级的任务。这个逻辑在`commit`阶段中。
 
@@ -1006,7 +1006,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 > 举个例子：初始状态A为 0b00100，来了一个高优先任务B变成了0b00110，之后又来了一个更高优先级C变成了0b00111。最后任务的的调度流程为C -> B -> A
 
-#### 如何确保低优先级任务不会一直被跳过从而处于饥饿状态
+### 如何确保低优先级任务不会一直被跳过从而处于饥饿状态
 
 按照高优先级打断低优先级的规则，如果一直有高优先级任务过来，那我们的低优先级任务岂不是没有重启之日？所以 react 为了解决低优先级任务的饥饿问题，在 `ensureRootIsScheduled` 函数开始的时候调用`markStarvedLanesAsExpired`来处理饥饿问题。
 
@@ -1054,7 +1054,7 @@ let exitStatus = shouldTimeSlice
 
 > 不过这里有一个疑问，就算在`performConcurrentWorkOnRoot`中使用同步的方式去调用，如果一直有高优先级任务进来的话，低优先级任务还是不能得到及时执行。在`react17`中，`ensureRootIsScheduled`中获取优先级的函数`getNextLanes`会优先读取过期的优先级，但是`react18`中去掉了这个代码。这里原因还在调查中，有知道的大佬还请多多指教。
 
-### 实战
+## 实战
 
 `react-sheduler`会被导出成单独的`npm`包，所以在业务中如果遇到耗时高的任务，我们可以利用`sheduler`的任务调度和时间分片来提高我们系统的性能。例如长列表计算，复杂表单计算等等。
 
@@ -1118,17 +1118,17 @@ let exitStatus = shouldTimeSlice
 
 例如我们实现了一个简易的长列表计算逻辑，`doTask`和`doTaskWithScheduler`分别是没开启/开启了`Scheduler`的情况。最终的火焰图如下。
 
-#### 未启用`Scheduler`
+### 未启用`Scheduler`
 
 <img src="./assets/image-20240520211609671.png" alt="image-20240520211609671" style="zoom:50%;" />
 
-#### 启用`Scheduler`
+### 启用`Scheduler`
 
 <img src="./assets/image-20240520211455033.png" alt="image-20240520211455033" style="zoom:50%;" />
 
 可以看到启用`Scheduler`之后，浏览器每一帧基本`js`线程都只会占用5ms，不会影响浏览器的渲染。但是未启用的情况下足足阻塞了浏览器主线程3s，这三秒期间浏览器不会有任何响应。
 
-### 总结
+## 总结
 
 <img src="./assets/image-20240521172717529.png" alt="image-20240521172717529" style="zoom:50%;" />
 
@@ -1139,17 +1139,3 @@ let exitStatus = shouldTimeSlice
 3. 在`Scheduler workloop`中会从`taskQueue`中不断的获取任务并执行，任务的回调函数也就是我们的`performConcurrentWorkOnRoot`。在`performConcurrentWorkOnRoot`中会开启`fiber`构建循环`workLoopConcurrent`。循环的通过`vdom`去构建`fiber`树。每一次循环也都会判断当前帧是否还有空闲时间，如果没有会立刻中断。同时记录当前构建的状态，并返回`performConcurrentWorkOnRoot`函数本身，表示当前任务未执行完，在下次调度的时候从上一次记录的状态开始构建。
 
 `react`源码中还有非常多值得学习和探讨的地方，本篇文章也只是站在一个比较宏观的角度将`react`中比较重要的几个部分进行串联，相信看完之后大家对`react`也有了整体的认识，再去看源码的话也不至于一头雾水。
-
-最后，鉴于本人水平有限，文中有错误的地方还请各位大佬批评指正。
-
-
-
-
-
-### 参考文章
-
-1. [React 源码分析 8- 状态更新的优先级机制](https://xie.infoq.cn/article/eebb27aef01238fb54ff782f9)
-2. [深入分析React-Scheduler原理](https://juejin.cn/post/7205008050364448805)
-3. [React 之从 requestIdleCallback 到时间切片](https://juejin.cn/user/712139234359182/posts)
-4. [彻底搞懂 React 18 并发机制的原理](https://juejin.cn/post/7171231346361106440#heading-2)
-5. [7km](https://7km.top/main/priority/)
