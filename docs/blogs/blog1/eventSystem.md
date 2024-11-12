@@ -64,7 +64,7 @@ function preventDefault(event) {
 
 2. 可以通过 `event.target` 得到目标节点。不然，父元素怎么针对不同的子节点，进行定制化事件代理。
 
-`react`实现事件代理也是基于此。不过`react`的事件体系，不是全部都通过`事件委托`来实现的。有一些[特殊情况](https://github.com/facebook/react/blob/v17.0.2/packages/react-dom/src/client/ReactDOMComponent.js#L530-L616)，是直接绑定到对应 DOM 元素上的(如:`scroll`，`load`)，它们都通过[listenToNonDelegatedEvent](https://github.com/facebook/react/blob/v17.0.2/packages/react-dom/src/events/DOMPluginEventSystem.js#L295-L314)函数进行绑定.
+`react`实现事件代理也是基于此。不过`react`的事件体系，不是全部都通过`事件委托`来实现的。对于不可以冒泡的事件，是直接绑定到对应 DOM 元素上的(例如 img 的 load 事件)，它们都通过[listenToNonDelegatedEvent](https://github.com/facebook/react/blob/v17.0.2/packages/react-dom/src/events/DOMPluginEventSystem.js#L295-L314)函数进行绑定.
 
 
 
@@ -199,6 +199,9 @@ document原生冒泡
 ## 事件绑定
 
 当我们调用`ReactDOM.createRoot`之后，会进入到`/packages/react-dom/src/client/ReactDOMRoot.js`代码下的逻辑。`createRoot`中会调用`listenToAllSupportedEvents`函数，这个函数就是用来进行事件绑定的。
+
+> [!NOTE]
+> 注意，这里绑定的都是可以冒泡的事件
 
 ### listenToAllSupportedEvents
 
@@ -427,7 +430,67 @@ export function addEventCaptureListener( // 捕获
 }
 ```
 
-至此，我们的事件都已经绑定到`root`节点上了。当我们点击某个节点之后就会进行触发这些函数。下面我们详细讲解触发部门
+至此，我们的所有的简单事件都已经绑定到`root`节点上了。当我们点击某个节点之后就会进行触发这些函数。
+
+### 不可冒泡事件绑定
+
+上述通过`listenToAllSupportedEvents`绑定的事件都是可以冒泡的，对于不可以冒泡的事件是在 reconcile 的 `completeWork` 阶段，执行 `finalizeInitialChildren` 方法进行绑定
+
+```js
+/*
+ * 代码位置 packages/react-dom/src/client/ReactDOMHostConfig.js
+ */
+export function finalizeInitialChildren(
+  domElement: Instance,
+  type: string,
+  props: Props,
+  rootContainerInstance: Container,
+  hostContext: HostContext
+): boolean {
+  ...
+  setInitialProperties(domElement, type, props, rootContainerInstance);
+  ...
+}
+```
+
+#### setInitialProperties
+
+```js
+/*
+ * 代码位置 packages/react-dom/src/client/ReactDOMComponent.js
+ */
+export function setInitialProperties(
+  domElement: Element,
+  tag: string,
+  rawProps: Object,
+  rootContainerElement: Element | Document | DocumentFragment
+): void {
+  ...
+  // 根据不同的标签，来绑定不同的事件
+  switch (tag) {
+    case 'dialog':
+      listenToNonDelegatedEvent('cancel', domElement);
+      listenToNonDelegatedEvent('close', domElement);
+      props = rawProps;
+      break;
+
+    case 'img':
+    case 'image':
+    case 'link':
+      listenToNonDelegatedEvent('error', domElement);
+      listenToNonDelegatedEvent('load', domElement);
+      props = rawProps;
+      break;
+  }
+  ...
+}
+```
+
+listenToNonDelegatedEvent 最终也是通过 addTrappedEventListener 方法来为元素绑定事件，addTrappedEventListener 方法在上面已经介绍过了
+
+可以看到此时是没有判断 props 传值来绑定事件的，表示即使你在书写 JSX 时 `<img>` 标签即使不传入 onLoad 等等，也是会绑定 load 事件的
+
+至此，我们就完成了所有的事件绑定了，保证了可以冒泡不能冒泡的事件都已经完成了绑定
 
 ## 事件触发
 
@@ -629,7 +692,7 @@ function extractEvents( // 根据当前fiber调用插件系统去收集所有的
   );
 }
 
-
+// SimpleEventPlugin.extractEvents
 function extractEvents(
   dispatchQueue: DispatchQueue,
   domEventName: DOMEventName,
@@ -679,7 +742,57 @@ function extractEvents(
 }
 ```
 
-`extractEvents` 方法会根据传过去的 `domEventName`（比如这个事件是 `click`），去`targetInst` 这个 fiber 节点上去收集 `props` 里的 `onClick` 事件，`fiber.return` 指的就是 `targetInst` 的父 `fiber`，比如当前点击的 `div` 标签，`targetInst`就是 `div` 标签的 fiber，`targetInst.return`指的就是 `div#parent` 的 `fiber` 节点，然后一直递归收集到 `dispatchQueue` 队列里面，最终 `dispatchQueue` 队列的数据结构就是
+`extractEvents`函数主要做两件事情
+
+1. 调用`accumulateSinglePhaseListeners`收集所有事件
+2. 调用`processDispatchQueue`执行事件
+
+### accumulateSinglePhaseListeners
+
+```js
+/**
+ * 代码位置 packages/react-dom/src/events/DOMPluginEventSystem.js
+ */
+export function accumulateSinglePhaseListeners(
+  targetFiber: Fiber | null,
+  reactName: string | null,
+  nativeEventType: string,
+  inCapturePhase: boolean,
+  accumulateTargetOnly: boolean,
+  nativeEvent: AnyNativeEvent
+): Array<DispatchListener> {
+  ...
+  const captureName = reactName !== null ? reactName + 'Capture' : null;
+  const reactEventName = inCapturePhase ? captureName : reactName;
+
+  let listeners: Array<DispatchListener> = [];
+  let instance = targetFiber;
+
+  while (instance !== null) {
+    const { stateNode, tag } = instance;
+
+    // Fiber 类型必须是 HostComponent，例如 div，img
+    if (tag === HostComponent && stateNode !== null) {
+      if (reactEventName !== null) {
+        // 通过 reactEventName 去匹配该 Fiber 的 props，匹配成功后，即可获得事件的执行函数
+        const listener = getListener(instance, reactEventName);
+        if (listener != null) {
+          listeners.push(
+            createDispatchListener(instance, listener, lastHostComponent)
+          );
+        }
+      }
+    }
+    ...
+
+    // 向父节点搜索
+    instance = instance.return;
+  }
+  return listeners;
+}
+```
+
+`accumulateSinglePhaseListeners` 方法会根据传过去的 `domEventName`（比如这个事件是 `click`），去`targetInst` 这个 fiber 节点上去收集 `props` 里的 `onClick` 事件，`fiber.return` 指的就是 `targetInst` 的父 `fiber`，比如当前点击的 `div` 标签，`targetInst`就是 `div` 标签的 fiber，`targetInst.return`指的就是 `div#parent` 的 `fiber` 节点，然后一直递归收集到 `dispatchQueue` 队列里面，最终 `dispatchQueue` 队列的数据结构就是
 `[{event：合成事件源，listener:  [{instance: div#child 标签的 fiber，listener：对应 div#child 标签的 onClick 事件，currentTarget：div#child 标签 DOM 节点}，div#parent 标签的 {instance，listener，currentTarget}]}]`。
 
 ### processDispatchQueue
@@ -690,12 +803,10 @@ export function processDispatchQueue(
   eventSystemFlags: EventSystemFlags,
 ): void {
   const inCapturePhase = (eventSystemFlags & IS_CAPTURE_PHASE) !== 0;
-  for (let i = 0; i < dispatchQueue.length; i++) { // 可能有多个事件
-    const {event, listeners} = dispatchQueue[i];
+  for (let i = 0; i < dispatchQueue.length; i++) { // 可能一次触发多个事件，例如mouseMove,pinterDown等等
+    const {event, listeners} = dispatchQueue[i]; // 拿到当前时间的所有监听事件
     processDispatchQueueItemsInOrder(event, listeners, inCapturePhase);
-    //  event system doesn't use pooling.
   }
-  // This would be a good time to rethrow if any of the event handlers threw.
   rethrowCaughtError();
 }
 
@@ -768,7 +879,43 @@ preventDefault: function() {
 ```
 
 ## 事件委托的坑点
-`react`的事件都是基于事件冒泡的，所以一旦有原生节点绑定原生事件后阻止了事件冒泡，那么我们的所有`react`绑定的冒泡事件都不会触发（捕获事件可以正常触发）。例如上面的代码中我们增加一个阻止冒泡：
+
+了解了之后我们可以思考下面这两个问题：
+
+1. 子元素如此绑定 `<div onClick={(event) => { event.stopPropagation() }}></div>` 后，父元素通过 ref.current.addEventListener 还可以监听到吗
+
+2. 子元素通过 ref.current.addEventListener 内 event.stopPropagation() 后，父元素如此绑定 `<div onClick={(event) => { event.stopPropagation() }}></div>`还可以监听到吗。
+
+上面这两个问题主要在于我们阻止冒泡事件的场景不同，一个是原生事件内阻止，一个是在`react`合成事件中阻止。解释如下：
+
+1. 由于`react`冒泡事件要在触发节点冒泡到`rootElement`跟节点之后才会执行收集和触发的动作。所以当我们执行`childBubble`的时候，原生节点的冒泡事件都已经执行完了。`e.stopPropagation()`只对根结点的所有父节点的原生绑定事件生效（例如 `document`,`body`）等等，注意是原生绑定事件！！！对于普通的`react`事件父节点的事件也不会执行的。例如上面代码我们在`childBubble`增加阻止冒泡
+
+```js{2}
+const childBubble = (e) => {
+  e.stopPropagation();
+  console.log("子元素React事件冒泡");
+};
+```
+最后代码点击之后运行的结果为：
+
+```js
+/**
+document原生捕获
+父元素React事件捕获
+子元素React事件捕获
+父元素原生捕获
+子元素原生捕获
+子元素原生冒泡
+父元素原生冒泡
+子元素React事件冒泡
+ */
+```
+可以看到除了正常的`react`事件没有向上冒泡外，我们原生绑定的冒泡事件只有`document`上的没执行
+
+
+
+2. `react`的事件都是基于事件冒泡的，所以一旦有原生节点绑定原生事件后阻止了事件冒泡，那么我们的所有`react`绑定的冒泡事件都不会触发（捕获事件可以正常触发）。例如上面的代码中我们增加一个阻止冒泡：
+
 ```js{2}
 divRef.current.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -788,4 +935,15 @@ document原生捕获
 父元素原生冒泡
  */
 ```
-可以看到和冒泡相关的事件都没触发，包括子元素的都没有触发。
+可以看到和冒泡相关的事件都没触发，包括子元素的事件都没有触发。
+
+## 总结
+
+1. React 将事件分为可以委托的事件（可以冒泡的事件）和不可以委托的事件（不可以冒泡的事件）。可以委托的事件在 createRoot 段绑定于 rootContainerElement；不可以委托的事件在 completeWork 段绑定于对应的元素上
+
+2. 当一个元素触发事件后，对于可以冒泡的事件，即冒泡到 rootContainerElement 后触发事件，并执行回调；对于不可冒泡事件，则直接执行回调。捕获事件和冒泡事件执行步骤相似，只是捕获先于冒泡执行，也就是说，下述步骤 3，4 是会执行两次的，一次是捕获，一次是冒泡
+
+3. 执行回调时，通过 JS 原生事件的 event.target 找到触发的元素，并根据元素获取到对应的 Fiber 节点，找到对应的 Fiber 节点后，向上遍历，收集事件 & 事件处理函数（JSX 中传入的事件回调），插入队列中
+
+4. 收集完毕后，根据不同阶段，捕获阶段从后往前执行，冒泡节点从前往后执行，依次清空队列
+

@@ -41,4 +41,7 @@ export default {
     },
     socialLinks: [{ icon: "github", link: "https://github.com/xzy0625/react-docs" }], // 可以连接到 github
   },
+  vite: {
+    assetsInclude: ['**/*.awebp'], // 支持awebp
+  }
 };
