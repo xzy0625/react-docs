@@ -5,13 +5,21 @@ export const sidebar = [
     items: [
       {
         text: "为什么要学习源码",
-        link: "/blogs/start/start",
+        link: "/blogs/blog1/为什么学习源码",
       },
     ],
   },
   {
-    text: "优雅的调试源码",
-    link: "/blogs/blog1/",
+    text: "源码结构",
+    link: "/blogs/blog1/源码结构",
+  },
+  {
+    text: "如何调试源码",
+    link: "/blogs/blog1/如何调试源码",
+  },
+  {
+    text: "初次渲染",
+    link: "/blogs/blog1/初次渲染",
   },
   {
     text: "时间分片和并发机制",

@@ -937,6 +937,13 @@ document原生捕获
 ```
 可以看到和冒泡相关的事件都没触发，包括子元素的事件都没有触发。
 
+## React 事件系统奇特的地方
+1. 原生阻止冒泡`react`的事件就触发不了，例子如上所述
+2. `react`事件触发行为和真实的`dom`不一样。比如我们使用`protal`组件挂载到`body`上，在`protal`上的触发点击事件。`react`还是会按照对应的`fiber`结构处理。
+> react结构 APP -> div#click1 -> protal -> div#click2(挂载到body)
+> 真实dom body -> div#click2 -> div#click1
+> 当我们点击protal中div的时候还是会触发div#click1。这个页面上真实的dom层级不一样
+
 ## 总结
 
 1. React 将事件分为可以委托的事件（可以冒泡的事件）和不可以委托的事件（不可以冒泡的事件）。可以委托的事件在 createRoot 段绑定于 rootContainerElement；不可以委托的事件在 completeWork 段绑定于对应的元素上
